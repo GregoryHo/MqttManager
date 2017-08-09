@@ -282,12 +282,14 @@ public class Connection implements MqttCallbackExtended {
    * client id, must create a new connection with new client id
    */
   public void disconnect() {
-    setStatus(LEAVE);
-    try {
-      client.disconnect();
-      subscriptionList.clear();
-    } catch (Exception e) {
-      e.printStackTrace();
+    if (status == CONNECTED) {
+      setStatus(LEAVE);
+      try {
+        client.disconnect();
+        subscriptionList.clear();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
     }
   }
 
