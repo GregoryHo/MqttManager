@@ -210,14 +210,18 @@ public class MqttActionListener implements IMqttActionListener {
     return retryTime;
   }
 
-  int restRetryTime() {
+  int retryTime() {
     if (retryTime == ALWAYS_RETRY) {
-      return retryTime;
+      return 777;
     } else if (retryTime > 0) {
       retryTime--;
     }
 
     return retryTime;
+  }
+
+  void clearRetryTime() {
+    retryTime = 0;
   }
 
   @Override public void onSuccess(IMqttToken iMqttToken) {
@@ -300,7 +304,7 @@ public class MqttActionListener implements IMqttActionListener {
             + " succeeded.");
       }
 
-      connection.publish(publishing, onActionListener, null);
+      connection.publish(this, publishing, onActionListener, null);
     }
   }
 
@@ -396,7 +400,7 @@ public class MqttActionListener implements IMqttActionListener {
             "Publish topic : " + publishing.getSubscriptionTopic() + " failure, " + throwable);
       }
 
-      connection.publish(publishing, onActionListener, throwable);
+      connection.publish(this, publishing, onActionListener, throwable);
     }
   }
 }
