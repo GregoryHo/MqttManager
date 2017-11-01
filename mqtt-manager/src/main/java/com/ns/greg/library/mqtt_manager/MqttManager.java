@@ -53,6 +53,17 @@ public class MqttManager {
   }
 
   /**
+   * Should be called when activity is onPause,
+   * this will disconnected connection.
+   */
+  public void onPause(String clientId) {
+    Connection connection = getConnection(clientId);
+    if (connection != null) {
+      connection.disconnect();
+    }
+  }
+
+  /**
    * Gets current time stamp of client id
    *
    * @param clientId target client id

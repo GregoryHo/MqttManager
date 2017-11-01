@@ -17,4 +17,8 @@ public class Publishing extends Subscription {
   public String getPublishMessage() {
     return publishMessage;
   }
+
+  public boolean isRetained() {
+    return true;
+  }
 }

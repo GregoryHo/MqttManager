@@ -91,7 +91,7 @@ public class MqttActionListener implements IMqttActionListener {
   }
 
   /**
-   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE/PUBLISH] subscription action listener with retry
+   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE/PUBLISH] action listener with retry
    * mechanism
    *
    * @param action any action defined in {@link Action}
@@ -111,7 +111,7 @@ public class MqttActionListener implements IMqttActionListener {
   }
 
   /**
-   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE/PUBLISH] subscription action listener without retry
+   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE/PUBLISH] action listener without retry
    * mechanism
    *
    * @param action any action defined in {@link Action}
@@ -125,7 +125,7 @@ public class MqttActionListener implements IMqttActionListener {
   }
 
   /**
-   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE] subscriptions action listener with retry mechanism
+   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE] action listener with retry mechanism
    *
    * @param action any action defined in {@link Action}
    * @param connection mqtt connection
@@ -144,7 +144,7 @@ public class MqttActionListener implements IMqttActionListener {
   }
 
   /**
-   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE] subscriptions action listener without retry mechanism
+   * Constructor for [SUBSCRIBE/UN-SUBSCRIBE] action listener without retry mechanism
    *
    * @param action any action defined in {@link Action}
    * @param connection mqtt connection
@@ -193,7 +193,7 @@ public class MqttActionListener implements IMqttActionListener {
    *
    * @return subscription
    */
-  public List<Subscription> getSubscriptions() {
+  @Nullable public List<Subscription> getSubscriptions() {
     return subscriptions;
   }
 

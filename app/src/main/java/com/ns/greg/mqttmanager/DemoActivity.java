@@ -26,9 +26,9 @@ public class DemoActivity extends AppCompatActivity {
     Connection connection = MqttManager.getInstance().getConnection(CLIENT_ID);
     if (connection == null) {
       connection = MqttManager.getInstance()
-          .addConnection(
-              Connection.createConnectionWithTimeStamp(getApplicationContext(), "demo.url",
-                  CLIENT_ID));
+          .addConnection(Connection.createConnectionWithTimeStamp(getApplicationContext(),
+              "tcp://iot.eclipse.org:1883" /* Eclipse Public Server */, CLIENT_ID)
+              .addConnectionOptions("test", "1234".toCharArray(), 30, 10, true, false));
     }
 
     // connection
