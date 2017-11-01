@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MqttManager {
 
   public static final String MQTT_TAG = "MqttManager";
-  public static final boolean DEBUG = false;
+  public static final boolean DEBUG = true;
 
   private static volatile MqttManager mqttManager;
   // List of {@link Connection} object

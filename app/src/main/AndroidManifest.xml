@@ -3,6 +3,10 @@
     package="com.ns.greg.mqttmanager"
     >
 
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
   <application
       android:allowBackup="true"
       android:icon="@mipmap/ic_launcher"
@@ -17,6 +21,10 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+
+    <!-- Mqtt Service -->
+    <service android:name="org.eclipse.paho.android.service.MqttService">
+    </service>
 
   </application>
 
