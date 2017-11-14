@@ -1,6 +1,9 @@
 package com.ns.greg.library.mqtt_manager;
 
+import android.support.annotation.IntDef;
 import com.ns.greg.library.mqtt_manager.internal.Connection;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -13,6 +16,22 @@ public class MqttManager {
 
   public static final String MQTT_TAG = "MqttManager";
   public static final boolean DEBUG = true;
+
+  public static final int AT_MOST_ONCE = 0;
+  public static final int AT_LEAST_ONCE = 1;
+  public static final int EXACTLY_ONCE = 2;
+
+  @IntDef({ AT_MOST_ONCE, AT_LEAST_ONCE, EXACTLY_ONCE }) @Retention(RetentionPolicy.SOURCE)
+  public @interface QoS {
+
+  }
+
+  public static final int UN_RETAINED = 0;
+  public static final int RETAINED = 1;
+  @IntDef({UN_RETAINED, RETAINED})
+  @Retention(RetentionPolicy.SOURCE) public @interface Retained {
+
+  }
 
   private static volatile MqttManager mqttManager;
   // List of {@link Connection} object

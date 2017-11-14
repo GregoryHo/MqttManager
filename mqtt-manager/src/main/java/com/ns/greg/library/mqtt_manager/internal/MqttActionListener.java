@@ -3,15 +3,12 @@ package com.ns.greg.library.mqtt_manager.internal;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
+import com.ns.greg.library.mqtt_manager.external.MqttTopic;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
-
-import static com.ns.greg.library.mqtt_manager.MqttManager.DEBUG;
-import static com.ns.greg.library.mqtt_manager.MqttManager.MQTT_TAG;
 
 /**
  * @author Gregory
@@ -34,31 +31,18 @@ public class MqttActionListener implements IMqttActionListener {
 
   }
 
-  public interface OnActionListener {
-
-    <T extends Subscription> void onSuccess(T subscription, String message);
-
-    void onFailure(Subscription subscription, Throwable throwable);
-  }
-
   // Action
   @Action private int action;
-
   // Mqtt connection
   private Connection connection;
-
   // Subscription
-  @Nullable private Subscription subscription;
-
+  @Nullable private MqttTopic topic;
   // Subscriptions
-  @Nullable private List<Subscription> subscriptions;
-
+  @Nullable private List<? extends MqttTopic> topics;
   // The callback listener for mqtt action listener
   @Nullable private OnActionListener onActionListener;
-
   // The sub mqtt action listener
   @Nullable private MqttActionListener subMqttActionListener;
-
   // The mqtt action retry time
   private int retryTime;
 
@@ -96,16 +80,15 @@ public class MqttActionListener implements IMqttActionListener {
    *
    * @param action any action defined in {@link Action}
    * @param connection mqtt connection
-   * @param subscription subscription
+   * @param topic topic
    * @param onActionListener action listener
    * @param retryTime retry times for action
    */
-  MqttActionListener(@Action int action, @NonNull Connection connection,
-      @NonNull Subscription subscription, @Nullable OnActionListener onActionListener,
-      int retryTime) {
+  MqttActionListener(@Action int action, @NonNull Connection connection, @NonNull MqttTopic topic,
+      @Nullable OnActionListener onActionListener, int retryTime) {
     this.action = action;
     this.connection = connection;
-    this.subscription = subscription;
+    this.topic = topic;
     this.onActionListener = onActionListener;
     this.retryTime = retryTime;
   }
@@ -116,12 +99,12 @@ public class MqttActionListener implements IMqttActionListener {
    *
    * @param action any action defined in {@link Action}
    * @param connection mqtt connection
-   * @param subscription subscription
+   * @param topic topic
    * @param onActionListener action listener
    */
-  MqttActionListener(@Action int action, @NonNull Connection connection,
-      @NonNull Subscription subscription, @Nullable OnActionListener onActionListener) {
-    this(action, connection, subscription, onActionListener, 0);
+  MqttActionListener(@Action int action, @NonNull Connection connection, @NonNull MqttTopic topic,
+      @Nullable OnActionListener onActionListener) {
+    this(action, connection, topic, onActionListener, 0);
   }
 
   /**
@@ -129,16 +112,15 @@ public class MqttActionListener implements IMqttActionListener {
    *
    * @param action any action defined in {@link Action}
    * @param connection mqtt connection
-   * @param subscriptions subscriptions
+   * @param topics topics
    * @param onActionListener action listener
    * @param retryTime retry times for action
    */
   MqttActionListener(@Action int action, @NonNull Connection connection,
-      @NonNull List<Subscription> subscriptions, @Nullable OnActionListener onActionListener,
-      int retryTime) {
+      @NonNull List<? extends MqttTopic> topics, @Nullable OnActionListener onActionListener, int retryTime) {
     this.action = action;
     this.connection = connection;
-    this.subscriptions = subscriptions;
+    this.topics = topics;
     this.onActionListener = onActionListener;
     this.retryTime = retryTime;
   }
@@ -148,12 +130,12 @@ public class MqttActionListener implements IMqttActionListener {
    *
    * @param action any action defined in {@link Action}
    * @param connection mqtt connection
-   * @param subscriptions subscriptions
+   * @param topics topics
    * @param onActionListener action listener
    */
   MqttActionListener(@Action int action, @NonNull Connection connection,
-      @NonNull List<Subscription> subscriptions, @Nullable OnActionListener onActionListener) {
-    this(action, connection, subscriptions, onActionListener, 0);
+      @NonNull List<? extends MqttTopic> topics, @Nullable OnActionListener onActionListener) {
+    this(action, connection, topics, onActionListener, 0);
   }
 
   /**
@@ -170,6 +152,25 @@ public class MqttActionListener implements IMqttActionListener {
     this.retryTime = subMqttActionListener.getRetryTime();
   }
 
+  @Override public String toString() {
+    switch (action) {
+      case CONNECT:
+        return "Connect";
+
+      case SUBSCRIBE:
+        return "Subscribe";
+
+      case UN_SUBSCRIBE:
+        return "UnSubscribe";
+
+      case PUBLISH:
+        return "Publish";
+
+      default:
+        return "Unknown";
+    }
+  }
+
   /**
    * Returns current action
    *
@@ -180,21 +181,21 @@ public class MqttActionListener implements IMqttActionListener {
   }
 
   /**
-   * Returns subscription, might be null
+   * Returns topic, might be null
    *
-   * @return subscription
+   * @return topic
    */
-  @Nullable public Subscription getSubscription() {
-    return subscription;
+  @Nullable public MqttTopic getTopic() {
+    return topic;
   }
 
   /**
-   * Returns subscriptions, might be null
+   * Returns topics, might be null
    *
-   * @return subscription
+   * @return topic
    */
-  @Nullable public List<Subscription> getSubscriptions() {
-    return subscriptions;
+  @Nullable List<? extends MqttTopic> getTopics() {
+    return topics;
   }
 
   /**
@@ -258,21 +259,10 @@ public class MqttActionListener implements IMqttActionListener {
    * When onSubscribe success
    */
   private void subscribeSuccess() {
-    if (subscription != null) {
-      if (DEBUG) {
-        Log.d(MQTT_TAG, "Subscribe topic : " + subscription.getSubscriptionTopic() + " succeeded.");
-      }
-
-      connection.subscribe(this, subscription, onActionListener, null);
-    } else if (subscriptions != null) {
-      if (DEBUG) {
-        for (Subscription subscription : subscriptions) {
-          Log.d(MQTT_TAG,
-              "Subscribe topic : " + subscription.getSubscriptionTopic() + " succeeded.");
-        }
-      }
-
-      connection.subscribes(this, subscriptions, onActionListener, null);
+    if (topic != null) {
+      connection.subscribe(this, topic, onActionListener, null);
+    } else if (topics != null) {
+      connection.subscribes(this, topics, onActionListener, null);
     }
   }
 
@@ -280,13 +270,8 @@ public class MqttActionListener implements IMqttActionListener {
    * When un-onSubscribe success
    */
   private void unSubscribeSuccess() {
-    if (subscription != null) {
-      if (DEBUG) {
-        Log.d(MQTT_TAG,
-            "UnSubscribe topic : " + subscription.getSubscriptionTopic() + " succeeded.");
-      }
-
-      connection.unSubscribe(subscription, onActionListener, null);
+    if (topic != null) {
+      connection.unSubscribe(topic, onActionListener, null);
     }
   }
 
@@ -294,17 +279,8 @@ public class MqttActionListener implements IMqttActionListener {
    * When publish success
    */
   private void publishSuccess() {
-    if (subscription != null && subscription instanceof Publishing) {
-      Publishing publishing = (Publishing) subscription;
-      if (DEBUG) {
-        Log.d(MQTT_TAG, "Publish topic : "
-            + publishing.getSubscriptionTopic()
-            + ", message : "
-            + publishing.getPublishMessage()
-            + " succeeded.");
-      }
-
-      connection.publish(this, publishing, onActionListener, null);
+    if (topic != null) {
+      connection.publish(this, topic, onActionListener, null);
     }
   }
 
@@ -337,10 +313,6 @@ public class MqttActionListener implements IMqttActionListener {
    * @param throwable mqtt exception
    */
   private void connectionFailure(Throwable throwable) {
-    if (DEBUG) {
-      Log.d(MQTT_TAG, "Connect to mqtt server failure, " + throwable);
-    }
-
     connection.connection(this, onActionListener, throwable);
   }
 
@@ -350,22 +322,10 @@ public class MqttActionListener implements IMqttActionListener {
    * @param throwable mqtt exception
    */
   private void subscribeFailure(Throwable throwable) {
-    if (subscription != null) {
-      if (DEBUG) {
-        Log.d(MQTT_TAG,
-            "Subscribe topic : " + subscription.getSubscriptionTopic() + " failure, " + throwable);
-      }
-
-      connection.subscribe(this, subscription, onActionListener, throwable);
-    } else if (subscriptions != null) {
-      if (DEBUG) {
-        for (Subscription subscription : subscriptions) {
-          Log.d(MQTT_TAG,
-              "Subscribe topic : " + subscription.getSubscriptionTopic() + " succeeded.");
-        }
-      }
-
-      connection.subscribes(this, subscriptions, onActionListener, throwable);
+    if (topic != null) {
+      connection.subscribe(this, topic, onActionListener, throwable);
+    } else if (topics != null) {
+      connection.subscribes(this, topics, onActionListener, throwable);
     }
   }
 
@@ -375,15 +335,8 @@ public class MqttActionListener implements IMqttActionListener {
    * @param throwable mqtt exception
    */
   private void unSubscribeFailure(Throwable throwable) {
-    if (subscription != null) {
-      if (DEBUG) {
-        Log.d(MQTT_TAG, "UnSubscribe topic : "
-            + subscription.getSubscriptionTopic()
-            + " failure , "
-            + throwable);
-      }
-
-      connection.unSubscribe(subscription, onActionListener, throwable);
+    if (topic != null) {
+      connection.unSubscribe(topic, onActionListener, throwable);
     }
   }
 
@@ -393,14 +346,8 @@ public class MqttActionListener implements IMqttActionListener {
    * @param throwable mqtt exception
    */
   private void publishFailure(Throwable throwable) {
-    if (subscription != null && subscription instanceof Publishing) {
-      Publishing publishing = (Publishing) subscription;
-      if (DEBUG) {
-        Log.d(MQTT_TAG,
-            "Publish topic : " + publishing.getSubscriptionTopic() + " failure, " + throwable);
-      }
-
-      connection.publish(this, publishing, onActionListener, throwable);
+    if (topic != null) {
+      connection.publish(this, topic, onActionListener, throwable);
     }
   }
 }

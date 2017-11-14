@@ -6,10 +6,13 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.TextView;
 import com.ns.greg.library.mqtt_manager.MqttManager;
+import com.ns.greg.library.mqtt_manager.external.MqttTopic;
 import com.ns.greg.library.mqtt_manager.internal.Connection;
-import com.ns.greg.library.mqtt_manager.internal.MqttActionListener;
-import com.ns.greg.library.mqtt_manager.internal.Publishing;
-import com.ns.greg.library.mqtt_manager.internal.Subscription;
+import com.ns.greg.library.mqtt_manager.internal.OnActionListener;
+import com.ns.greg.mqttmanager.topic.DemoTopic;
+import com.ns.greg.mqttmanager.topic.TopicDoor;
+import com.ns.greg.mqttmanager.topic.TopicLight;
+import com.ns.greg.mqttmanager.topic.TopicWindow;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,27 +23,23 @@ import java.util.List;
 
 public class DemoActivity extends AppCompatActivity {
 
+  private static final String TAG = "DemoActivity";
   private static final String CLIENT_ID = "DEMO";
+
   private Connection connection;
   private TextView messageTV;
+  private TopicWindow topicWindow;
+  private TopicDoor topicDoor;
+  private TopicLight topicLight;
 
   @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.demo);
+    createTopic();
     messageTV = (TextView) findViewById(R.id.message);
     findViewById(R.id.window_open_btn).setOnClickListener(new View.OnClickListener() {
       @Override public void onClick(View v) {
-        connection.publishTopic(new Publishing("window", "open window"),
-            new MqttActionListener.OnActionListener() {
-              @Override
-              public <T extends Subscription> void onSuccess(T subscription, String message) {
-
-              }
-
-              @Override public void onFailure(Subscription subscription, Throwable throwable) {
-
-              }
-            });
+        connection.publishTopic(topicWindow, null);
       }
     });
 
@@ -48,19 +47,16 @@ public class DemoActivity extends AppCompatActivity {
       @Override public void onClick(View v) {
         // publish, the manager will check the connection is connected or not
         // if not, the manager will automatic connect to server and publish when connected
-        connection.publishTopic(new Publishing("door", "close door"),
-            new MqttActionListener.OnActionListener() {
-              @Override
-              public <T extends Subscription> void onSuccess(T subscription, String message) {
-
-              }
-
-              @Override public void onFailure(Subscription subscription, Throwable throwable) {
-
-              }
-            });
+        topicDoor.setMessage("close");
+        connection.publishTopic(topicDoor, null);
       }
     });
+  }
+
+  private void createTopic() {
+    topicWindow = new TopicWindow("window");
+    topicDoor = new TopicDoor("door", "close");
+    topicLight = new TopicLight("light");
   }
 
   @Override protected void onResume() {
@@ -80,12 +76,12 @@ public class DemoActivity extends AppCompatActivity {
     }
 
     // connection
-    connection.connect(new MqttActionListener.OnActionListener() {
-      @Override public <T extends Subscription> void onSuccess(T subscription, String message) {
+    connection.connect(new OnActionListener() {
+      @Override public void onSuccess(MqttTopic mqttTopic, String message) {
 
       }
 
-      @Override public void onFailure(Subscription subscription, Throwable throwable) {
+      @Override public void onFailure(MqttTopic mqttTopic, Throwable throwable) {
 
       }
     });
@@ -99,27 +95,31 @@ public class DemoActivity extends AppCompatActivity {
 
     // subscribe single, the manager will check the connection is connected or not
     // if not, the manager will automatic connect to server and subscribe when connected
-    connection.subscribeTopic(new Subscription("door"), new MqttActionListener.OnActionListener() {
-      @Override public <T extends Subscription> void onSuccess(T subscription, String message) {
+    connection.subscribeTopic(topicDoor, new OnActionListener<TopicDoor>() {
+      @Override public void onSuccess(TopicDoor mqttTopic, String message) {
+        System.out.println(
+            "Topic: " + mqttTopic.getTopic() + ", mqttTopic: " + mqttTopic.getMqttTopic());
         updateReceivedMessage(message);
       }
 
-      @Override public void onFailure(Subscription subscription, Throwable throwable) {
+      @Override public void onFailure(TopicDoor mqttTopic, Throwable throwable) {
 
       }
     }, 0);
 
     // subscribe multiple, the manager will check the connection is connected or not
     // if not, the manager will automatic connect to server and subscribe when connected
-    List<Subscription> subscriptionList = new ArrayList<>();
-    subscriptionList.add(new Subscription("window"));
-    subscriptionList.add(new Subscription("light"));
-    connection.subscribeTopics(subscriptionList, new MqttActionListener.OnActionListener() {
-      @Override public <T extends Subscription> void onSuccess(T subscription, String message) {
+    List<DemoTopic> subscriptionList = new ArrayList<>();
+    subscriptionList.add(topicDoor);
+    subscriptionList.add(topicLight);
+    connection.subscribeTopics(subscriptionList, new OnActionListener<DemoTopic>() {
+      @Override public void onSuccess(DemoTopic mqttTopic, String message) {
+        System.out.println(
+            "Topic: " + mqttTopic.getTopic() + ", mqttTopic: " + mqttTopic.getMqttTopic());
         updateReceivedMessage(message);
       }
 
-      @Override public void onFailure(Subscription subscription, Throwable throwable) {
+      @Override public void onFailure(DemoTopic mqttTopic, Throwable throwable) {
 
       }
     }, 0);
