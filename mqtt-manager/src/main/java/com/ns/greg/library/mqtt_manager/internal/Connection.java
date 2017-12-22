@@ -579,7 +579,7 @@ public class Connection implements MqttCallbackExtended {
     Subscription subscription = (Subscription) topic;
     if (throwable == null && checkStatus(CONNECTED)) {
       try {
-        client.subscribe(topic.getMqttTopic(), subscription.getQoS(), null,
+        client.subscribe(topic.getMqttTopic(), subscription.getSubscriptionQoS(), null,
             mqttActionListener);
       } catch (MqttException e) {
         e.printStackTrace();
@@ -608,7 +608,7 @@ public class Connection implements MqttCallbackExtended {
     if (throwable == null && checkStatus(CONNECTED)) {
       debugMessage("[SUBSCRIBE] " + topic.getMqttTopic() + " succeeded.");
       try {
-        client.subscribe(topic.getMqttTopic(), subscription.getQoS(),
+        client.subscribe(topic.getMqttTopic(), subscription.getSubscriptionQoS(),
             (s, mqttMessage) -> {
               String message = new String(mqttMessage.getPayload());
               debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
@@ -650,7 +650,7 @@ public class Connection implements MqttCallbackExtended {
           MqttTopic topic = topics.get(i);
           Subscription subscription = (Subscription) topic;
           topicArray[i] = topics.get(i).getMqttTopic();
-          qos[i] = subscription.getQoS();
+          qos[i] = subscription.getSubscriptionQoS();
         }
 
         client.subscribe(topicArray, qos, null, mqttActionListener);
@@ -687,7 +687,7 @@ public class Connection implements MqttCallbackExtended {
           final MqttTopic topic = topics.get(i);
           final Subscription subscription = (Subscription) topic;
           topicArray[i] = topic.getMqttTopic();
-          qos[i] = subscription.getQoS();
+          qos[i] = subscription.getSubscriptionQoS();
           debugMessage("[SUBSCRIBE] " + topicArray[i] + " succeeded.");
           listeners[i] = (s, mqttMessage) -> {
             String message = new String(mqttMessage.getPayload());
@@ -777,7 +777,7 @@ public class Connection implements MqttCallbackExtended {
           message = "";
         }
 
-        client.publish(topic.getMqttTopic(), message.getBytes(), publishing.getQoS(),
+        client.publish(topic.getMqttTopic(), message.getBytes(), publishing.getPublishingQoS(),
             publishing.isRetained() == RETAINED, null, mqttActionListener);
       } catch (MqttException e) {
         e.printStackTrace();

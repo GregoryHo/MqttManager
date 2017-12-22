@@ -3,7 +3,6 @@ package com.ns.greg.mqttmanager;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
-import android.view.View;
 import android.widget.TextView;
 import com.ns.greg.library.mqtt_manager.MqttManager;
 import com.ns.greg.library.mqtt_manager.external.MqttTopic;
@@ -36,20 +35,15 @@ public class DemoActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.demo);
     createTopic();
-    messageTV = (TextView) findViewById(R.id.message);
-    findViewById(R.id.window_open_btn).setOnClickListener(new View.OnClickListener() {
-      @Override public void onClick(View v) {
-        connection.publishTopic(topicWindow, null);
-      }
-    });
+    messageTV = findViewById(R.id.message);
+    findViewById(R.id.window_open_btn).setOnClickListener(
+        v -> connection.publishTopic(topicWindow, null));
 
-    findViewById(R.id.door_close_btn).setOnClickListener(new View.OnClickListener() {
-      @Override public void onClick(View v) {
-        // publish, the manager will check the connection is connected or not
-        // if not, the manager will automatic connect to server and publish when connected
-        topicDoor.setMessage("close");
-        connection.publishTopic(topicDoor, null);
-      }
+    findViewById(R.id.door_close_btn).setOnClickListener(v -> {
+      // publish, the manager will check the connection is connected or not
+      // if not, the manager will automatic connect to server and publish when connected
+      topicDoor.setMessage("close");
+      connection.publishTopic(topicDoor, null);
     });
   }
 
@@ -69,11 +63,16 @@ public class DemoActivity extends AppCompatActivity {
   private void connect2Server() {
     connection = MqttManager.getInstance().getConnection(CLIENT_ID);
     if (connection == null) {
+      connection = Connection.createConnectionWithTimeStamp(getApplicationContext(),
+          "tcp://iot.eclipse.org:1883" /* Eclipse Public Server */, CLIENT_ID);
+      connection.addConnectionOptions(new Connection.ConnectOptionsBuilder().setUser("test")
+          .setPassword("1234")
+          .setConnectionTimeout(30)
+          .setKeppAliveInterval(10));
       connection = MqttManager.getInstance()
-          .addConnection(Connection.createConnectionWithTimeStamp(getApplicationContext(),
-              "tcp://iot.eclipse.org:1883" /* Eclipse Public Server */, CLIENT_ID)
-              .addConnectionOptions("test", "1234".toCharArray(), 30, 10, true, false));
+          .addConnection(connection);
     }
+
 
     // connection
     connection.connect(new OnActionListener() {

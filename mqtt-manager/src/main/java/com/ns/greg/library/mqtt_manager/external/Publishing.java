@@ -7,9 +7,9 @@ import com.ns.greg.library.mqtt_manager.MqttManager;
  * @since 2017/11/13
  */
 
-public interface Publishing extends Qos {
+public interface Publishing {
 
-  @Override int getQoS();
+  int getPublishingQoS();
 
   @MqttManager.Retained int isRetained();
 
