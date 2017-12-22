@@ -28,8 +28,8 @@ public class MqttManager {
 
   public static final int UN_RETAINED = 0;
   public static final int RETAINED = 1;
-  @IntDef({UN_RETAINED, RETAINED})
-  @Retention(RetentionPolicy.SOURCE) public @interface Retained {
+
+  @IntDef({ UN_RETAINED, RETAINED }) @Retention(RetentionPolicy.SOURCE) public @interface Retained {
 
   }
 
@@ -55,7 +55,8 @@ public class MqttManager {
     return mqttManager;
   }
 
-  public static void releaseInstance() {
+  public static void release() {
+    mqttManager.clearConnections();
     mqttManager = null;
   }
 
@@ -64,11 +65,13 @@ public class MqttManager {
    * this will update the time stamp according to the client id.
    */
   public void onResume(String clientId) {
-    if (timeStamps.containsKey(clientId)) {
-      timeStamps.remove(clientId);
-    }
+    synchronized (MqttManager.class) {
+      if (timeStamps.containsKey(clientId)) {
+        timeStamps.remove(clientId);
+      }
 
-    timeStamps.put(clientId, System.currentTimeMillis());
+      timeStamps.put(clientId, System.currentTimeMillis());
+    }
   }
 
   /**
@@ -76,9 +79,11 @@ public class MqttManager {
    * this will disconnected connection.
    */
   public void onPause(String clientId) {
-    Connection connection = getConnection(clientId);
-    if (connection != null) {
-      connection.disconnect();
+    synchronized (MqttManager.class) {
+      Connection connection = getConnection(clientId);
+      if (connection != null) {
+        connection.disconnect();
+      }
     }
   }
 
@@ -99,15 +104,14 @@ public class MqttManager {
    * @return connection
    */
   public Connection addConnection(Connection connection) {
-    connections.put(connection.getClientId(), connection);
-
-    return connection;
+    synchronized (MqttManager.class) {
+      connections.put(connection.getClientId(), connection);
+      return connection;
+    }
   }
 
   /**
    * Removes specific connection
-   *
-   * @param clientId
    */
   public void removeConnection(String clientId) {
     if (connections.containsKey(clientId)) {
@@ -119,6 +123,10 @@ public class MqttManager {
    * Clears connection
    */
   public void clearConnections() {
+    for (String key : connections.keySet()) {
+      connections.get(key).disconnect();
+    }
+
     connections.clear();
   }
 
@@ -129,26 +137,33 @@ public class MqttManager {
    * @return connection
    */
   public Connection getConnection(String clientId) {
-    Connection connection = null;
-    long currentTime = timeStamps.get(clientId);
-    for (String key : connections.keySet()) {
-      if (key.contains(clientId)) {
-        long time = convertTime(key);
-        // Get current time stamp connection
-        if (time == currentTime) {
-          connection = connections.get(key);
-        } else {
-          // release / disconnect the connection is out of date
-          if (connections.get(key).getStatus() == Connection.LEAVE) {
-            connections.remove(key);
+    synchronized (MqttManager.class) {
+      Connection currentConnection = null;
+      if (!timeStamps.containsKey(clientId)) {
+        return null;
+      }
+
+      long currentTime = timeStamps.get(clientId);
+      for (String key : connections.keySet()) {
+        if (key.contains(clientId)) {
+          Connection connection = connections.get(key);
+          long time = convertTime(key);
+          // Get current time stamp connection
+          if (time == currentTime) {
+            currentConnection = connection;
           } else {
-            connections.get(key).disconnect();
+            // release / disconnect the connection is out of date
+            if (connection.getStatus() == Connection.LEAVE) {
+              connections.remove(key);
+            } else {
+              connection.disconnect();
+            }
           }
         }
       }
-    }
 
-    return connection;
+      return currentConnection;
+    }
   }
 
   /**

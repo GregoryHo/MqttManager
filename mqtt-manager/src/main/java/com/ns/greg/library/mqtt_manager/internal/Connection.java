@@ -15,6 +15,9 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocketFactory;
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.DisconnectedBufferOptions;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -49,21 +52,32 @@ import static com.ns.greg.library.mqtt_manager.MqttManager.RETAINED;
 
 public class Connection implements MqttCallbackExtended {
 
+  // TCP connection
+  private static final String TCP = "tcp://";
+  // SSL connection
+  private static final String SSL = "ssl://";
+  // Connection status
   public static final int NONE = 0;
   public static final int CONNECTING = 1;
   public static final int CONNECTED = 2;
-  public static final int DISCONNECTED = 3;
-  public static final int LEAVE = 4;
+  public static final int DISCONNECTING = 3;
+  public static final int DISCONNECTED = 4;
+  public static final int LEAVE = 5;
 
-  @IntDef({ NONE, CONNECTING, CONNECTED, DISCONNECTED, LEAVE }) @Retention(RetentionPolicy.SOURCE)
-  public @interface ConnectionStatus {
+  @IntDef({ NONE, CONNECTING, CONNECTED, DISCONNECTING, DISCONNECTED, LEAVE })
+  @Retention(RetentionPolicy.SOURCE) @interface ConnectionStatus {
 
   }
 
+  // Retry delay time
+  private static final long RETRY_DELAY_TIME = 5000l;
+
   private final MqttAndroidClient client;
-  private final String serverUri;
+  private final String uri;
   private final String clientId;
-  private final List<MqttActionListener> subActions = new ArrayList<>();
+  private boolean sslConnection;
+  private int port;
+  private final List<MqttActionListener> subActions = new CopyOnWriteArrayList<>();
   @ConnectionStatus private volatile int status = NONE;
   private MqttConnectOptions mqttConnectOptions;
   // Connection listener to send callback when connection is re-connect or not subscribe anything
@@ -73,23 +87,50 @@ public class Connection implements MqttCallbackExtended {
   // Current publishingList of connection
   private final List<MqttTopic> publishingList = new ArrayList<>();
 
-  private Connection(MqttAndroidClient client, String serverUri, String clientId) {
+  private Connection(MqttAndroidClient client, String uri, String clientId, boolean sslConnection,
+      int port) {
     this.client = client;
-    this.serverUri = serverUri;
+    this.client.setCallback(this);
+    this.uri = uri;
     this.clientId = clientId;
-    client.setCallback(this);
+    this.sslConnection = sslConnection;
+    this.port = port;
   }
 
-  public static Connection createConnection(Context context, String serverUri, String clientId) {
-    MqttAndroidClient client = new MqttAndroidClient(context, serverUri, clientId);
-    return new Connection(client, serverUri, clientId);
+  public static Connection createConnection(Context context, String host, String clientId) {
+    return createConnection(context, host, clientId, false, 1883);
   }
 
-  public static Connection createConnectionWithTimeStamp(Context context, String serverUri,
+  public static Connection createConnection(Context context, String host, String clientId,
+      boolean sslConnection, int port) {
+    String uri;
+    if (sslConnection) {
+      uri = SSL + host + ":" + port;
+    } else {
+      uri = TCP + host + ":" + port;
+    }
+
+    MqttAndroidClient client = new MqttAndroidClient(context, uri, clientId);
+    return new Connection(client, uri, clientId, sslConnection, port);
+  }
+
+  public static Connection createConnectionWithTimeStamp(Context context, String host,
       String clientId) {
-    String id = clientId + MqttManager.getInstance().getTimeStamp(clientId);
-    MqttAndroidClient client = new MqttAndroidClient(context, serverUri, id);
-    return new Connection(client, serverUri, id);
+    return createConnectionWithTimeStamp(context, host, clientId, false, 1883);
+  }
+
+  public static Connection createConnectionWithTimeStamp(Context context, String host,
+      String clientId, boolean sslConnection, int port) {
+    String timestampId = clientId + MqttManager.getInstance().getTimeStamp(clientId);
+    String uri;
+    if (sslConnection) {
+      uri = SSL + host + ":" + port;
+    } else {
+      uri = TCP + host + ":" + port;
+    }
+
+    MqttAndroidClient client = new MqttAndroidClient(context, uri, timestampId);
+    return new Connection(client, uri, timestampId, sslConnection, port);
   }
 
   @Override public String toString() {
@@ -99,15 +140,8 @@ public class Connection implements MqttCallbackExtended {
   /**
    * Adds connection options for mqtt
    */
-  public Connection addConnectionOptions(String userName, char[] mqttPassword,
-      int connectionTimeout, int keepAliveInterval, boolean autoReconnect, boolean cleanSession) {
-    mqttConnectOptions = new MqttConnectOptions();
-    mqttConnectOptions.setUserName(userName);
-    mqttConnectOptions.setPassword(mqttPassword);
-    mqttConnectOptions.setConnectionTimeout(connectionTimeout);
-    mqttConnectOptions.setKeepAliveInterval(keepAliveInterval);
-    mqttConnectOptions.setAutomaticReconnect(autoReconnect);
-    mqttConnectOptions.setCleanSession(cleanSession);
+  public Connection addConnectionOptions(ConnectOptionsBuilder builder) {
+    mqttConnectOptions = builder.build();
     return this;
   }
 
@@ -121,8 +155,8 @@ public class Connection implements MqttCallbackExtended {
   /**
    * Return current connection server uri
    */
-  public String getServerUri() {
-    return serverUri;
+  public String getUri() {
+    return uri;
   }
 
   /**
@@ -143,18 +177,28 @@ public class Connection implements MqttCallbackExtended {
    * Return current connection status
    */
   public int getStatus() {
-    return status;
+    synchronized (Connection.class) {
+      return status;
+    }
   }
 
   /**
    * Change current connection status {@link ConnectionStatus}
    */
   private void setStatus(@ConnectionStatus int status) {
-    this.status = status;
+    synchronized (Connection.class) {
+      this.status = status;
+    }
   }
 
-  private boolean isConnected() {
-    return status == CONNECTED;
+  /**
+   * Checks current status
+   *
+   * @param status the specific to checks
+   * @return true if equals, otherwise false
+   */
+  private boolean checkStatus(@ConnectionStatus int status) {
+    return getStatus() == status;
   }
 
   /**
@@ -162,7 +206,7 @@ public class Connection implements MqttCallbackExtended {
    */
   public void addAction(MqttActionListener connectionListener) {
     MqttActionListener subMqttActionListener = connectionListener.getSubMqttActionListener();
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       if (subMqttActionListener != null) {
         doSubAction(subMqttActionListener.getTopic(), subMqttActionListener.getTopics(),
             subMqttActionListener, null);
@@ -172,7 +216,8 @@ public class Connection implements MqttCallbackExtended {
         addSubAction(subMqttActionListener);
       }
 
-      if (status != CONNECTING) {
+      // Re-connect when connection is disconnected
+      if (status == DISCONNECTED) {
         connect(connectionListener);
       }
     }
@@ -193,8 +238,7 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener connection action listener
    * @param throwable mqtt exception
    */
-  private void subActions(@Nullable OnActionListener onActionListener,
-      Throwable throwable) {
+  private void subActions(@Nullable OnActionListener onActionListener, Throwable throwable) {
     if (onActionListener != null) {
       connectCallback(onActionListener, throwable);
     }
@@ -225,8 +269,8 @@ public class Connection implements MqttCallbackExtended {
    * @param connectActionListener callback listener
    * @param throwable mqtt exception
    */
-  @SuppressWarnings("unchecked") private void connectCallback(@NonNull OnActionListener connectActionListener,
-      Throwable throwable) {
+  @SuppressWarnings("unchecked") private void connectCallback(
+      @NonNull OnActionListener connectActionListener, Throwable throwable) {
     if (throwable == null) {
       connectActionListener.onSuccess(null, "connectCallback to server");
     } else {
@@ -280,7 +324,7 @@ public class Connection implements MqttCallbackExtended {
    */
   @SuppressWarnings("unchecked") public void connect(@Nullable OnActionListener onActionListener) {
     connectionListener = weakReferenceListener(onActionListener);
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       if (connectionListener != null) {
         connectionListener.onSuccess(null, clientId + " is connected");
       }
@@ -298,7 +342,8 @@ public class Connection implements MqttCallbackExtended {
    * client id, must create a new connection with new client id
    */
   public void disconnect() {
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
+      debugMessage(clientId + " [DISCONNECT] to server (" + uri + ")");
       setStatus(LEAVE);
       try {
         connectionListener = null;
@@ -308,6 +353,9 @@ public class Connection implements MqttCallbackExtended {
       } catch (Exception e) {
         e.printStackTrace();
       }
+    } else {
+      debugMessage(clientId + " [DISCONNECTING]...");
+      setStatus(DISCONNECTING);
     }
   }
 
@@ -343,7 +391,7 @@ public class Connection implements MqttCallbackExtended {
     MqttActionListener subscribeListener =
         new MqttActionListener(MqttActionListener.SUBSCRIBE, this, topic,
             weakReferenceListener(onActionListener), retryTime);
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       subscribeTopic(topic, subscribeListener, null);
     } else {
       MqttActionListener connectionListener = new MqttActionListener(this, subscribeListener);
@@ -373,7 +421,7 @@ public class Connection implements MqttCallbackExtended {
     MqttActionListener subscribeListener =
         new MqttActionListener(MqttActionListener.SUBSCRIBE, this, topics,
             weakReferenceListener(onActionListener), retryTime);
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       subscribeTopics(topics, subscribeListener, null);
     } else {
       MqttActionListener connectionListener = new MqttActionListener(this, subscribeListener);
@@ -388,12 +436,12 @@ public class Connection implements MqttCallbackExtended {
    * @param topic the un-subscription topic
    * @param onActionListener action callback listener
    */
-  public void unSubscribeTopic(@NonNull final MqttTopic topic,
-      @Nullable final OnActionListener onActionListener) {
+  public <T extends MqttTopic> void unSubscribeTopic(@NonNull final T topic,
+      @Nullable final OnActionListener<T> onActionListener) {
     MqttActionListener unSubscribeListener =
         new MqttActionListener(MqttActionListener.UN_SUBSCRIBE, this, topic,
             weakReferenceListener(onActionListener));
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       unSubscribeTopic(topic, unSubscribeListener, null);
     } else {
       MqttActionListener connectionListener = new MqttActionListener(this, unSubscribeListener);
@@ -413,7 +461,7 @@ public class Connection implements MqttCallbackExtended {
     MqttActionListener publishListener =
         new MqttActionListener(MqttActionListener.PUBLISH, this, topic,
             weakReferenceListener(onActionListener));
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       publishTopic(topic, publishListener, null);
     } else {
       MqttActionListener connectionListener = new MqttActionListener(this, publishListener);
@@ -429,8 +477,8 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener action callback listener
    * @param retryTime retry times
    */
-  public void publishTopic(@NonNull final MqttTopic topic,
-      @Nullable OnActionListener onActionListener, int retryTime) {
+  public <T extends MqttTopic> void publishTopic(@NonNull final T topic,
+      @Nullable OnActionListener<T> onActionListener, int retryTime) {
     // Save the subscribed topic of current connection
     synchronized (publishingList) {
       if (!publishingList.contains(topic)) {
@@ -441,7 +489,7 @@ public class Connection implements MqttCallbackExtended {
     MqttActionListener publishListener =
         new MqttActionListener(MqttActionListener.PUBLISH, this, topic,
             weakReferenceListener(onActionListener), retryTime);
-    if (isConnected()) {
+    if (checkStatus(CONNECTED)) {
       publishTopic(topic, publishListener, null);
     } else {
       MqttActionListener connectionListener = new MqttActionListener(this, publishListener);
@@ -456,10 +504,12 @@ public class Connection implements MqttCallbackExtended {
    */
   private void connect(MqttActionListener connectionListener) {
     try {
-      setStatus(CONNECTING);
       if (mqttConnectOptions == null) {
         throw new IllegalStateException("ConnectOptions is null");
       }
+
+      setStatus(CONNECTING);
+      debugMessage(clientId + " [CONNECTING]...");
       client.connect(mqttConnectOptions, null, connectionListener);
     } catch (MqttException e) {
       e.printStackTrace();
@@ -477,11 +527,11 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener action callback listener
    * @param throwable exception
    */
-  void connection(final MqttActionListener mqttActionListener,
+  @SuppressWarnings("unchecked") void connection(final MqttActionListener mqttActionListener,
       @Nullable final OnActionListener onActionListener, Throwable throwable) {
     if (status < CONNECTED) {
       if (throwable == null) {
-        debugMessage(clientId + " connect to mqtt server succeeded.");
+        debugMessage(clientId + " [CONNECT] to mqtt server (" + uri + ") succeeded.");
         setStatus(CONNECTED);
         DisconnectedBufferOptions disconnectedBufferOptions = new DisconnectedBufferOptions();
         disconnectedBufferOptions.setBufferEnabled(true);
@@ -501,7 +551,7 @@ public class Connection implements MqttCallbackExtended {
         setStatus(DISCONNECTED);
         int retryTime = mqttActionListener.retryTime();
         debugMessage(clientId
-            + " connect to MQTT server failure, "
+            + " [CONNECT] to MQTT server failure, "
             + throwable
             + ", rest retry times: "
             + retryTime
@@ -527,9 +577,9 @@ public class Connection implements MqttCallbackExtended {
   private void subscribeTopic(@NonNull MqttTopic topic, MqttActionListener mqttActionListener,
       Throwable throwable) {
     Subscription subscription = (Subscription) topic;
-    if (throwable == null && isConnected()) {
+    if (throwable == null && checkStatus(CONNECTED)) {
       try {
-        client.subscribe(topic.getMqttTopic(), subscription.getSubscriptionQoS(), null,
+        client.subscribe(topic.getMqttTopic(), subscription.getQoS(), null,
             mqttActionListener);
       } catch (MqttException e) {
         e.printStackTrace();
@@ -551,22 +601,19 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener onSubscribe callback listener
    * @param throwable exception
    */
-  @SuppressWarnings("unchecked") void subscribe(final MqttActionListener mqttActionListener, final MqttTopic topic,
-      @Nullable final OnActionListener onActionListener,
+  @SuppressWarnings("unchecked") void subscribe(final MqttActionListener mqttActionListener,
+      final MqttTopic topic, @Nullable final OnActionListener onActionListener,
       final Throwable throwable) {
     Subscription subscription = (Subscription) topic;
-    if (throwable == null && isConnected()) {
-      debugMessage("Subscribe " + topic.getMqttTopic() + " succeeded.");
+    if (throwable == null && checkStatus(CONNECTED)) {
+      debugMessage("[SUBSCRIBE] " + topic.getMqttTopic() + " succeeded.");
       try {
-        client.subscribe(topic.getMqttTopic(), subscription.getSubscriptionQoS(),
-            new IMqttMessageListener() {
-              @Override public void messageArrived(String s, final MqttMessage mqttMessage)
-                  throws Exception {
-                String message = new String(mqttMessage.getPayload());
-                debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
-                if (onActionListener != null) {
-                  onActionListener.onSuccess(topic, message);
-                }
+        client.subscribe(topic.getMqttTopic(), subscription.getQoS(),
+            (s, mqttMessage) -> {
+              String message = new String(mqttMessage.getPayload());
+              debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
+              if (onActionListener != null) {
+                onActionListener.onSuccess(topic, message);
               }
             });
       } catch (MqttException e) {
@@ -577,7 +624,7 @@ public class Connection implements MqttCallbackExtended {
         e.printStackTrace();
       }
     } else {
-      debugMessage("Subscribe " + topic.getMqttTopic() + " failure.");
+      debugMessage("[SUBSCRIBE] " + topic.getMqttTopic() + " failure.");
       if (onActionListener != null) {
         onActionListener.onFailure(topic, throwable);
       }
@@ -594,7 +641,7 @@ public class Connection implements MqttCallbackExtended {
    */
   private void subscribeTopics(@NonNull List<? extends MqttTopic> topics,
       MqttActionListener mqttActionListener, Throwable throwable) {
-    if (throwable == null && isConnected()) {
+    if (throwable == null && checkStatus(CONNECTED)) {
       try {
         int size = topics.size();
         String[] topicArray = new String[size];
@@ -603,7 +650,7 @@ public class Connection implements MqttCallbackExtended {
           MqttTopic topic = topics.get(i);
           Subscription subscription = (Subscription) topic;
           topicArray[i] = topics.get(i).getMqttTopic();
-          qos[i] = subscription.getSubscriptionQoS();
+          qos[i] = subscription.getQoS();
         }
 
         client.subscribe(topicArray, qos, null, mqttActionListener);
@@ -628,10 +675,9 @@ public class Connection implements MqttCallbackExtended {
    * @param throwable exception
    */
   @SuppressWarnings("unchecked") void subscribes(final MqttActionListener mqttActionListener,
-      final List<? extends MqttTopic> topics,
-      @Nullable final OnActionListener onActionListener,
+      final List<? extends MqttTopic> topics, @Nullable final OnActionListener onActionListener,
       final Throwable throwable) {
-    if (throwable == null && isConnected()) {
+    if (throwable == null && checkStatus(CONNECTED)) {
       try {
         int size = topics.size();
         String[] topicArray = new String[size];
@@ -641,16 +687,13 @@ public class Connection implements MqttCallbackExtended {
           final MqttTopic topic = topics.get(i);
           final Subscription subscription = (Subscription) topic;
           topicArray[i] = topic.getMqttTopic();
-          qos[i] = subscription.getSubscriptionQoS();
-          debugMessage("Subscribe " + topicArray[i] + " succeeded.");
-          listeners[i] = new IMqttMessageListener() {
-            @Override public void messageArrived(String s, MqttMessage mqttMessage)
-                throws Exception {
-              String message = new String(mqttMessage.getPayload());
-              debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
-              if (onActionListener != null) {
-                onActionListener.onSuccess(topic, message);
-              }
+          qos[i] = subscription.getQoS();
+          debugMessage("[SUBSCRIBE] " + topicArray[i] + " succeeded.");
+          listeners[i] = (s, mqttMessage) -> {
+            String message = new String(mqttMessage.getPayload());
+            debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
+            if (onActionListener != null) {
+              onActionListener.onSuccess(topic, message);
             }
           };
         }
@@ -665,10 +708,8 @@ public class Connection implements MqttCallbackExtended {
       }
     } else {
       for (MqttTopic topic : topics) {
-        debugMessage("Subscribe " + topic.getMqttTopic() + " failure, " + throwable);
-        if (onActionListener != null) {
-          onActionListener.onFailure(topic, throwable);
-        }
+        debugMessage("[SUBSCRIBE] " + topic.getMqttTopic() + " failure, " + throwable);
+        onActionListener.onFailure(topic, throwable);
       }
     }
   }
@@ -682,7 +723,7 @@ public class Connection implements MqttCallbackExtended {
    */
   private void unSubscribeTopic(@NonNull MqttTopic topic, MqttActionListener mqttActionListener,
       Throwable throwable) {
-    if (throwable == null && isConnected()) {
+    if (throwable == null && checkStatus(CONNECTED)) {
       try {
         client.unsubscribe(topic.getMqttTopic(), null, mqttActionListener);
       } catch (MqttException e) {
@@ -704,15 +745,15 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener action callback listener
    * @param throwable exception
    */
-  @SuppressWarnings("unchecked") void unSubscribe(MqttTopic topic, @Nullable OnActionListener onActionListener,
-      Throwable throwable) {
-    if (throwable == null && isConnected()) {
-      debugMessage("Un-subscribe " + topic.getMqttTopic() + " succeeded.");
+  @SuppressWarnings("unchecked") void unSubscribe(MqttTopic topic,
+      @Nullable OnActionListener onActionListener, Throwable throwable) {
+    if (throwable == null && checkStatus(CONNECTED)) {
+      debugMessage("[UN-SUBSCRIBE] " + topic.getMqttTopic() + " succeeded.");
       if (onActionListener != null) {
         onActionListener.onSuccess(topic, null);
       }
     } else {
-      debugMessage("Un-subscribe " + topic.getMqttTopic() + " failure, " + throwable);
+      debugMessage("[UN-SUBSCRIBE] " + topic.getMqttTopic() + " failure, " + throwable);
       if (onActionListener != null) {
         onActionListener.onFailure(topic, throwable);
       }
@@ -729,14 +770,14 @@ public class Connection implements MqttCallbackExtended {
   private void publishTopic(@NonNull MqttTopic topic, MqttActionListener mqttActionListener,
       Throwable throwable) {
     Publishing publishing = (Publishing) topic;
-    if (throwable == null && isConnected()) {
+    if (throwable == null && checkStatus(CONNECTED)) {
       try {
         String message = publishing.getPublishingMessage();
         if (message == null) {
           message = "";
         }
 
-        client.publish(topic.getMqttTopic(), message.getBytes(), publishing.getPublishingQoS(),
+        client.publish(topic.getMqttTopic(), message.getBytes(), publishing.getQoS(),
             publishing.isRetained() == RETAINED, null, mqttActionListener);
       } catch (MqttException e) {
         e.printStackTrace();
@@ -757,11 +798,12 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener action callback listener
    * @param throwable exception
    */
-  @SuppressWarnings("unchecked") void publish(final MqttActionListener mqttActionListener, final MqttTopic topic,
-      @Nullable OnActionListener onActionListener, final Throwable throwable) {
+  @SuppressWarnings("unchecked") void publish(final MqttActionListener mqttActionListener,
+      final MqttTopic topic, @Nullable OnActionListener onActionListener,
+      final Throwable throwable) {
     Publishing publishing = (Publishing) topic;
-    if (throwable == null && isConnected()) {
-      debugMessage("Publish "
+    if (throwable == null && checkStatus(CONNECTED)) {
+      debugMessage("[PUBLISH] "
           + topic.getMqttTopic()
           + ", message: "
           + publishing.getPublishingMessage()
@@ -770,27 +812,41 @@ public class Connection implements MqttCallbackExtended {
         onActionListener.onSuccess(topic, publishing.getPublishingMessage());
       }
     } else {
-      debugMessage("Publish " + topic.getMqttTopic() + " failure, " + throwable);
+      debugMessage("[PUBLISH] " + topic.getMqttTopic() + " failure, " + throwable);
       if (onActionListener != null) {
         onActionListener.onFailure(topic, throwable);
       }
     }
   }
 
-  @SuppressWarnings("unchecked") @Override public void connectComplete(boolean isReconnect, String s) {
-    debugMessage("Connection complete, isReconnect = " + isReconnect);
-    if (connectionListener != null) {
-      if (isReconnect || subscriptionList.isEmpty()) {
-        connectionListener.onSuccess(null, TopicMessage.RECONNECT);
-      }
+  @SuppressWarnings("unchecked") @Override
+  public void connectComplete(boolean isReconnect, String s) {
+    if (DEBUG) {
+      Log.d(MQTT_TAG, "Connection complete, isReconnect = " + isReconnect);
     }
 
+    // Get last status
+    int lastStatus = getStatus();
+    // Set status to connected
     setStatus(CONNECTED);
+    /// If the last status is requiring disconnect
+    if (lastStatus == DISCONNECTING) {
+      disconnect();
+    } else {
+      if (connectionListener != null) {
+        if (isReconnect || subscriptionList.isEmpty()) {
+          connectionListener.onSuccess(null, TopicMessage.RECONNECT);
+        }
+      }
+    }
   }
 
   @Override public void connectionLost(Throwable throwable) {
-    debugMessage("Connection lost, throwable = " + throwable);
-    if (status != LEAVE) {
+    if (DEBUG) {
+      Log.d(MQTT_TAG, "Connection lost, throwable = " + throwable);
+    }
+
+    if (status != LEAVE || status != DISCONNECTING) {
       setStatus(DISCONNECTED);
     } else {
       release();
@@ -808,6 +864,75 @@ public class Connection implements MqttCallbackExtended {
   private void debugMessage(String message) {
     if (DEBUG) {
       Log.d(MQTT_TAG, message);
+    }
+  }
+
+  public static class ConnectOptionsBuilder {
+
+    private String user = null;
+    private String password = null;
+    private int connectionTimeout = 30;
+    private int keepAliveInterval = 60;
+    private boolean autoReconnect = true;
+    private boolean cleanSession = false;
+    private SocketFactory socketFactory = null;
+
+    public ConnectOptionsBuilder setUser(String user) {
+      this.user = user;
+      return this;
+    }
+
+    public ConnectOptionsBuilder setPassword(String password) {
+      this.password = password;
+      return this;
+    }
+
+    public ConnectOptionsBuilder setConnectionTimeout(int connectionTimeout) {
+      this.connectionTimeout = connectionTimeout;
+      return this;
+    }
+
+    public ConnectOptionsBuilder setKeppAliveInterval(int keepAliveInterval) {
+      this.keepAliveInterval = keepAliveInterval;
+      return this;
+    }
+
+    public ConnectOptionsBuilder setAutoReconnect(boolean autoReconnect) {
+      this.autoReconnect = autoReconnect;
+      return this;
+    }
+
+    public ConnectOptionsBuilder setCleanSession(boolean cleanSession) {
+      this.cleanSession = cleanSession;
+      return this;
+    }
+
+    public ConnectOptionsBuilder setSocketFactory(SSLSocketFactory socketFactory) {
+      this.socketFactory = socketFactory;
+      return this;
+    }
+
+    MqttConnectOptions build() {
+      if (user == null) {
+        throw new NullPointerException("User can't be null");
+      }
+
+      if (password == null) {
+        throw new NullPointerException("Password can't be null");
+      }
+
+      MqttConnectOptions connectOptions = new MqttConnectOptions();
+      connectOptions.setUserName(user);
+      connectOptions.setPassword(password.toCharArray());
+      connectOptions.setConnectionTimeout(connectionTimeout);
+      connectOptions.setKeepAliveInterval(keepAliveInterval);
+      connectOptions.setAutomaticReconnect(autoReconnect);
+      connectOptions.setCleanSession(cleanSession);
+      if (socketFactory != null) {
+        connectOptions.setSocketFactory(socketFactory);
+      }
+
+      return connectOptions;
     }
   }
 }
