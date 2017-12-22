@@ -1,13 +1,11 @@
 package com.ns.greg.library.mqtt_manager.external;
 
-import com.ns.greg.library.mqtt_manager.MqttManager;
-
 /**
  * @author Gregory
  * @since 2017/11/13
  */
 
-public interface Subscription {
+public interface Subscription extends Qos {
 
-  @MqttManager.QoS int getSubscriptionQoS();
+  @Override int getQoS();
 }
