@@ -57,20 +57,19 @@ public class Connection implements MqttCallbackExtended {
   // SSL connection
   private static final String SSL = "ssl://";
   // Connection status
-  public static final int NONE = 0;
-  public static final int CONNECTING = 1;
-  public static final int CONNECTED = 2;
-  public static final int DISCONNECTING = 3;
-  public static final int DISCONNECTED = 4;
-  public static final int LEAVE = 5;
+  public static final int INIT = 1;
+  public static final int CONNECTING = 1 << 1;
+  public static final int CONNECTED = 1 << 2;
+  public static final int DISCONNECTED = 1 << 3;
+  public static final int LEAVE = 1 << 4;
 
-  @IntDef({ NONE, CONNECTING, CONNECTED, DISCONNECTING, DISCONNECTED, LEAVE })
+  @IntDef(flag = true, value = { INIT, CONNECTING, CONNECTED, DISCONNECTED, LEAVE })
   @Retention(RetentionPolicy.SOURCE) @interface ConnectionStatus {
 
   }
 
   // Retry delay time
-  private static final long RETRY_DELAY_TIME = 5000l;
+  private static final long RETRY_DELAY_TIME = 5000L;
 
   private final MqttAndroidClient client;
   private final String uri;
@@ -78,7 +77,7 @@ public class Connection implements MqttCallbackExtended {
   private boolean sslConnection;
   private int port;
   private final List<MqttActionListener> subActions = new CopyOnWriteArrayList<>();
-  @ConnectionStatus private volatile int status = NONE;
+  @ConnectionStatus private volatile int status = INIT;
   private MqttConnectOptions mqttConnectOptions;
   // Connection listener to send callback when connection is re-connect or not subscribe anything
   @Nullable private OnActionListener connectionListener;
@@ -86,6 +85,8 @@ public class Connection implements MqttCallbackExtended {
   private final List<MqttTopic> subscriptionList = new ArrayList<>();
   // Current publishingList of connection
   private final List<MqttTopic> publishingList = new ArrayList<>();
+  // The leaving flag
+  private boolean leaving = false;
 
   private Connection(MqttAndroidClient client, String uri, String clientId, boolean sslConnection,
       int port) {
@@ -197,7 +198,7 @@ public class Connection implements MqttCallbackExtended {
    * @param status the specific to checks
    * @return true if equals, otherwise false
    */
-  private boolean checkStatus(@ConnectionStatus int status) {
+  public boolean checkStatus(@ConnectionStatus int status) {
     return getStatus() == status;
   }
 
@@ -211,13 +212,13 @@ public class Connection implements MqttCallbackExtended {
         doSubAction(subMqttActionListener.getTopic(), subMqttActionListener.getTopics(),
             subMqttActionListener, null);
       }
-    } else if (status != LEAVE) {
+    } else if (!checkStatus(LEAVE)) {
       if (subMqttActionListener != null) {
         addSubAction(subMqttActionListener);
       }
 
       // Re-connect when connection is disconnected
-      if (status == DISCONNECTED) {
+      if (checkStatus(DISCONNECTED)) {
         connect(connectionListener);
       }
     }
@@ -254,8 +255,7 @@ public class Connection implements MqttCallbackExtended {
     }
   }
 
-  private OnActionListener weakReferenceListener(
-      @Nullable OnActionListener onActionListener) {
+  private OnActionListener weakReferenceListener(@Nullable OnActionListener onActionListener) {
     if (onActionListener == null) {
       return null;
     }
@@ -328,7 +328,7 @@ public class Connection implements MqttCallbackExtended {
       if (connectionListener != null) {
         connectionListener.onSuccess(null, clientId + " is connected");
       }
-    } else {
+    } else if (!checkStatus(CONNECTING | LEAVE)) {
       MqttActionListener connectionListener =
           new MqttActionListener(MqttActionListener.CONNECT, this, this.connectionListener);
       connect(connectionListener);
@@ -342,7 +342,10 @@ public class Connection implements MqttCallbackExtended {
    * client id, must create a new connection with new client id
    */
   public void disconnect() {
-    if (checkStatus(CONNECTED)) {
+    if (checkStatus(CONNECTING)) {
+      debugMessage(clientId + " [LEAVING]...");
+      leaving = true;
+    } else {
       debugMessage(clientId + " [DISCONNECT] to server (" + uri + ")");
       setStatus(LEAVE);
       try {
@@ -353,9 +356,6 @@ public class Connection implements MqttCallbackExtended {
       } catch (Exception e) {
         e.printStackTrace();
       }
-    } else {
-      debugMessage(clientId + " [DISCONNECTING]...");
-      setStatus(DISCONNECTING);
     }
   }
 
@@ -529,7 +529,7 @@ public class Connection implements MqttCallbackExtended {
    */
   @SuppressWarnings("unchecked") void connection(final MqttActionListener mqttActionListener,
       @Nullable final OnActionListener onActionListener, Throwable throwable) {
-    if (status < CONNECTED) {
+    if (getStatus() < CONNECTED) {
       if (throwable == null) {
         debugMessage(clientId + " [CONNECT] to mqtt server (" + uri + ") succeeded.");
         setStatus(CONNECTED);
@@ -611,7 +611,7 @@ public class Connection implements MqttCallbackExtended {
         client.subscribe(topic.getMqttTopic(), subscription.getSubscriptionQoS(),
             (s, mqttMessage) -> {
               String message = new String(mqttMessage.getPayload());
-              debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
+              debugMessage("[RECEIVED] " + topic.getMqttTopic() + ", message : " + message);
               if (onActionListener != null) {
                 onActionListener.onSuccess(topic, message);
               }
@@ -691,7 +691,7 @@ public class Connection implements MqttCallbackExtended {
           debugMessage("[SUBSCRIBE] " + topicArray[i] + " succeeded.");
           listeners[i] = (s, mqttMessage) -> {
             String message = new String(mqttMessage.getPayload());
-            debugMessage(topic.getMqttTopic() + ", message arrived: " + message);
+            debugMessage("[RECEIVED] " + topic.getMqttTopic() + ", message: " + message);
             if (onActionListener != null) {
               onActionListener.onSuccess(topic, message);
             }
@@ -825,12 +825,10 @@ public class Connection implements MqttCallbackExtended {
       Log.d(MQTT_TAG, "Connection complete, isReconnect = " + isReconnect);
     }
 
-    // Get last status
-    int lastStatus = getStatus();
     // Set status to connected
     setStatus(CONNECTED);
-    /// If the last status is requiring disconnect
-    if (lastStatus == DISCONNECTING) {
+    /// If leaving
+    if (leaving) {
       disconnect();
     } else {
       if (connectionListener != null) {
@@ -846,7 +844,7 @@ public class Connection implements MqttCallbackExtended {
       Log.d(MQTT_TAG, "Connection lost, throwable = " + throwable);
     }
 
-    if (status != LEAVE || status != DISCONNECTING) {
+    if (!checkStatus(LEAVE)) {
       setStatus(DISCONNECTED);
     } else {
       release();

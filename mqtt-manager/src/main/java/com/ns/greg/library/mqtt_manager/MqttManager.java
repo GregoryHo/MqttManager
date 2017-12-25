@@ -83,6 +83,9 @@ public class MqttManager {
       Connection connection = getConnection(clientId);
       if (connection != null) {
         connection.disconnect();
+        if (connection.checkStatus(Connection.LEAVE)) {
+          removeConnection(clientId);
+        }
       }
     }
   }
@@ -152,11 +155,9 @@ public class MqttManager {
           if (time == currentTime) {
             currentConnection = connection;
           } else {
-            // release / disconnect the connection is out of date
-            if (connection.getStatus() == Connection.LEAVE) {
+            // release the connection which out of date
+            if (connection.checkStatus(Connection.LEAVE)) {
               connections.remove(key);
-            } else {
-              connection.disconnect();
             }
           }
         }
