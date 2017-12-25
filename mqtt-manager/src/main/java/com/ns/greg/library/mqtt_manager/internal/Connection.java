@@ -249,7 +249,7 @@ public class Connection implements MqttCallbackExtended {
         MqttActionListener subMqttActionListener = iterator.next();
         doSubAction(subMqttActionListener.getTopic(), subMqttActionListener.getTopics(),
             subMqttActionListener, throwable);
-        iterator.remove();
+        subActions.remove(subMqttActionListener);
       }
     }
   }
