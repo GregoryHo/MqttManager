@@ -1,6 +1,6 @@
 package com.ns.greg.library.mqtt_manager.external;
 
-import com.ns.greg.library.mqtt_manager.MqttManager;
+import com.ns.greg.library.mqtt_manager.annotation.Retained;
 
 /**
  * @author Gregory
@@ -11,7 +11,7 @@ public interface Publishing {
 
   int getPublishingQoS();
 
-  @MqttManager.Retained int isRetained();
+  @Retained int isRetained();
 
   String getPublishingMessage();
 }

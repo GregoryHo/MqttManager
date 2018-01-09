@@ -1,6 +1,6 @@
 package com.ns.greg.library.mqtt_manager.external;
 
-import com.ns.greg.library.mqtt_manager.MqttManager;
+import com.ns.greg.library.mqtt_manager.annotation.QoS;
 
 /**
  * @author Gregory
@@ -9,5 +9,5 @@ import com.ns.greg.library.mqtt_manager.MqttManager;
 
 public interface Subscription {
 
-  @MqttManager.QoS int getSubscriptionQoS();
+  @QoS int getSubscriptionQoS();
 }
