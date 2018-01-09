@@ -117,7 +117,8 @@ public class MqttActionListener implements IMqttActionListener {
    * @param retryTime retry times for action
    */
   MqttActionListener(@Action int action, @NonNull Connection connection,
-      @NonNull List<? extends MqttTopic> topics, @Nullable OnActionListener onActionListener, int retryTime) {
+      @NonNull List<? extends MqttTopic> topics, @Nullable OnActionListener onActionListener,
+      int retryTime) {
     this.action = action;
     this.connection = connection;
     this.topics = topics;
@@ -213,7 +214,7 @@ public class MqttActionListener implements IMqttActionListener {
 
   int retryTime() {
     if (retryTime == ALWAYS_RETRY) {
-      return 777;
+      return 1;
     } else if (retryTime > 0) {
       retryTime--;
     }
