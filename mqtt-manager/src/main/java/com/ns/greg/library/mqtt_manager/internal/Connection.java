@@ -5,6 +5,7 @@ import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import com.ns.greg.library.mqtt_manager.MqttConstants;
 import com.ns.greg.library.mqtt_manager.MqttManager;
 import com.ns.greg.library.mqtt_manager.external.MqttTopic;
 import com.ns.greg.library.mqtt_manager.external.Publishing;
@@ -26,10 +27,10 @@ import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import static com.ns.greg.library.mqtt_manager.MqttManager.DEBUG;
 import static com.ns.greg.library.mqtt_manager.MqttManager.MQTT_TAG;
-import static com.ns.greg.library.mqtt_manager.MqttManager.RETAINED;
 
 /**
  * <pre>
@@ -111,7 +112,10 @@ public class Connection implements MqttCallbackExtended {
       uri = TCP + host + ":" + port;
     }
 
-    MqttAndroidClient client = new MqttAndroidClient(context, uri, clientId);
+    // See https://github.com/eclipse/paho.mqtt.android/issues/185
+    MqttAndroidClient client =
+        new MqttAndroidClient(context, uri, clientId, new MemoryPersistence(),
+            MqttAndroidClient.Ack.AUTO_ACK);
     return new Connection(client, uri, clientId, sslConnection, port);
   }
 
@@ -130,7 +134,10 @@ public class Connection implements MqttCallbackExtended {
       uri = TCP + host + ":" + port;
     }
 
-    MqttAndroidClient client = new MqttAndroidClient(context, uri, timestampId);
+    // See https://github.com/eclipse/paho.mqtt.android/issues/185
+    MqttAndroidClient client =
+        new MqttAndroidClient(context, uri, timestampId, new MemoryPersistence(),
+            MqttAndroidClient.Ack.AUTO_ACK);
     return new Connection(client, uri, timestampId, sslConnection, port);
   }
 
@@ -778,7 +785,7 @@ public class Connection implements MqttCallbackExtended {
         }
 
         client.publish(topic.getMqttTopic(), message.getBytes(), publishing.getPublishingQoS(),
-            publishing.isRetained() == RETAINED, null, mqttActionListener);
+            publishing.isRetained() == MqttConstants.RETAINED, null, mqttActionListener);
       } catch (MqttException e) {
         e.printStackTrace();
       } catch (IllegalArgumentException e) {
