@@ -1,6 +1,6 @@
 package com.ns.greg.mqttmanager.topic;
 
-import com.ns.greg.library.mqtt_manager.MqttManager;
+import com.ns.greg.library.mqtt_manager.MqttConstants;
 import com.ns.greg.library.mqtt_manager.external.Subscription;
 
 /**
@@ -15,6 +15,6 @@ public class TopicLight extends DemoTopic implements Subscription {
   }
 
   @Override public int getSubscriptionQoS() {
-    return MqttManager.AT_LEAST_ONCE;
+    return MqttConstants.AT_LEAST_ONCE;
   }
 }

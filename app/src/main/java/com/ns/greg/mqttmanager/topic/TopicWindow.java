@@ -1,6 +1,6 @@
 package com.ns.greg.mqttmanager.topic;
 
-import com.ns.greg.library.mqtt_manager.MqttManager;
+import com.ns.greg.library.mqtt_manager.MqttConstants;
 import com.ns.greg.library.mqtt_manager.external.Publishing;
 import com.ns.greg.library.mqtt_manager.external.Subscription;
 
@@ -20,11 +20,11 @@ public class TopicWindow extends DemoTopic implements Subscription, Publishing {
   }
 
   @Override public int getPublishingQoS() {
-    return MqttManager.EXACTLY_ONCE;
+    return MqttConstants.EXACTLY_ONCE;
   }
 
   @Override public int isRetained() {
-    return MqttManager.RETAINED;
+    return MqttConstants.RETAINED;
   }
 
   @Override public String getPublishingMessage() {
@@ -32,6 +32,6 @@ public class TopicWindow extends DemoTopic implements Subscription, Publishing {
   }
 
   @Override public int getSubscriptionQoS() {
-    return MqttManager.EXACTLY_ONCE;
+    return MqttConstants.EXACTLY_ONCE;
   }
 }
