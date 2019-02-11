@@ -75,8 +75,8 @@ public class Connection implements MqttCallbackExtended {
   private final MqttAndroidClient client;
   private final String uri;
   private final String clientId;
-  private boolean sslConnection;
-  private int port;
+  private final boolean sslConnection;
+  private final int port;
   private final List<MqttActionListener> subActions = new CopyOnWriteArrayList<>();
   @ConnectionStatus private volatile int status = INIT;
   private MqttConnectOptions mqttConnectOptions;
@@ -99,17 +99,17 @@ public class Connection implements MqttCallbackExtended {
     this.port = port;
   }
 
-  public static Connection createConnection(Context context, String host, String clientId) {
-    return createConnection(context, host, clientId, false, 1883);
+  public static Connection createConnection(Context context, String endpoint, String clientId) {
+    return createConnection(context, endpoint, clientId, false, 1883);
   }
 
-  public static Connection createConnection(Context context, String host, String clientId,
+  public static Connection createConnection(Context context, String endpoint, String clientId,
       boolean sslConnection, int port) {
     String uri;
     if (sslConnection) {
-      uri = SSL + host + ":" + port;
+      uri = SSL + endpoint + ":" + port;
     } else {
-      uri = TCP + host + ":" + port;
+      uri = TCP + endpoint + ":" + port;
     }
 
     // See https://github.com/eclipse/paho.mqtt.android/issues/185
@@ -119,26 +119,15 @@ public class Connection implements MqttCallbackExtended {
     return new Connection(client, uri, clientId, sslConnection, port);
   }
 
-  public static Connection createConnectionWithTimeStamp(Context context, String host,
+  public static Connection createConnectionWithTimeStamp(Context context, String endpoint,
       String clientId) {
-    return createConnectionWithTimeStamp(context, host, clientId, false, 1883);
+    return createConnectionWithTimeStamp(context, endpoint, clientId, false, 1883);
   }
 
-  public static Connection createConnectionWithTimeStamp(Context context, String host,
+  public static Connection createConnectionWithTimeStamp(Context context, String endpoint,
       String clientId, boolean sslConnection, int port) {
     String timestampId = clientId + MqttManager.getInstance().getTimeStamp(clientId);
-    String uri;
-    if (sslConnection) {
-      uri = SSL + host + ":" + port;
-    } else {
-      uri = TCP + host + ":" + port;
-    }
-
-    // See https://github.com/eclipse/paho.mqtt.android/issues/185
-    MqttAndroidClient client =
-        new MqttAndroidClient(context, uri, timestampId, new MemoryPersistence(),
-            MqttAndroidClient.Ack.AUTO_ACK);
-    return new Connection(client, uri, timestampId, sslConnection, port);
+    return createConnection(context, endpoint, timestampId, sslConnection, port);
   }
 
   @Override public String toString() {
@@ -223,7 +212,6 @@ public class Connection implements MqttCallbackExtended {
       if (subMqttActionListener != null) {
         addSubAction(subMqttActionListener);
       }
-
       // Re-connect when connection is disconnected
       if (checkStatus(DISCONNECTED)) {
         connect(connectionListener);
@@ -384,6 +372,18 @@ public class Connection implements MqttCallbackExtended {
    *
    * @param topic the subscription topic
    * @param onActionListener action callback listener
+   */
+  public <T extends MqttTopic> void subscribeTopic(@NonNull final T topic,
+      @Nullable final OnActionListener<T> onActionListener) {
+    subscribeTopic(topic, onActionListener, 0);
+  }
+
+  /**
+   * Add the {@link MqttActionListener#SUBSCRIBE} action to try subscribe the topic from MQTT
+   * server, this will check the connection status, {@link Connection#addAction(MqttActionListener)}
+   *
+   * @param topic the subscription topic
+   * @param onActionListener action callback listener
    * @param retryTime retry times
    */
   public <T extends MqttTopic> void subscribeTopic(@NonNull final T topic,
@@ -404,6 +404,18 @@ public class Connection implements MqttCallbackExtended {
       MqttActionListener connectionListener = new MqttActionListener(this, subscribeListener);
       addAction(connectionListener);
     }
+  }
+
+  /**
+   * Add the {@link MqttActionListener#SUBSCRIBE} action to try subscribe the topics from MQTT
+   * server, this will check the connection status, {@link Connection#addAction(MqttActionListener)}
+   *
+   * @param topics the list of subscription topic
+   * @param onActionListener action callback listener
+   */
+  public <T extends MqttTopic> void subscribeTopics(@NonNull final List<T> topics,
+      @Nullable final OnActionListener<T> onActionListener) {
+    subscribeTopics(topics, onActionListener, 0);
   }
 
   /**
@@ -603,13 +615,12 @@ public class Connection implements MqttCallbackExtended {
   /**
    * [SINGLE] Subscribe message callback from MQTT server
    *
-   * @param mqttActionListener mqtt action listener
    * @param topic subscription topic
    * @param onActionListener onSubscribe callback listener
    * @param throwable exception
    */
-  @SuppressWarnings("unchecked") void subscribe(final MqttActionListener mqttActionListener,
-      final MqttTopic topic, @Nullable final OnActionListener onActionListener,
+  @SuppressWarnings("unchecked") void subscribe(final MqttTopic topic,
+      @Nullable final OnActionListener onActionListener,
       final Throwable throwable) {
     Subscription subscription = (Subscription) topic;
     if (throwable == null && checkStatus(CONNECTED)) {
@@ -676,13 +687,12 @@ public class Connection implements MqttCallbackExtended {
   /**
    * [MULTIPLE] Subscribe message callback from MQTT server
    *
-   * @param mqttActionListener mqtt action listener
    * @param topics list of subscription topic
    * @param onActionListener onSubscribe callback listener
    * @param throwable exception
    */
-  @SuppressWarnings("unchecked") void subscribes(final MqttActionListener mqttActionListener,
-      final List<? extends MqttTopic> topics, @Nullable final OnActionListener onActionListener,
+  @SuppressWarnings("unchecked") void subscribes(final List<? extends MqttTopic> topics,
+      @Nullable final OnActionListener onActionListener,
       final Throwable throwable) {
     if (throwable == null && checkStatus(CONNECTED)) {
       try {
@@ -805,9 +815,8 @@ public class Connection implements MqttCallbackExtended {
    * @param onActionListener action callback listener
    * @param throwable exception
    */
-  @SuppressWarnings("unchecked") void publish(final MqttActionListener mqttActionListener,
-      final MqttTopic topic, @Nullable OnActionListener onActionListener,
-      final Throwable throwable) {
+  @SuppressWarnings("unchecked") void publish(final MqttTopic topic,
+      @Nullable OnActionListener onActionListener, final Throwable throwable) {
     Publishing publishing = (Publishing) topic;
     if (throwable == null && checkStatus(CONNECTED)) {
       debugMessage("[PUBLISH] "

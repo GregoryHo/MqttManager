@@ -7,10 +7,12 @@ package com.ns.greg.library.mqtt_manager.external;
 
 public abstract class MqttTopic {
 
-  private String mqttTopic;
+  private final String mqttTopic;
+  private String message;
 
-  public MqttTopic(String mqttTopic) {
+  public MqttTopic(String mqttTopic, String message) {
     this.mqttTopic = mqttTopic;
+    this.message = message;
   }
 
   @Override public String toString() {
@@ -27,14 +29,18 @@ public abstract class MqttTopic {
     }
 
     MqttTopic target = (MqttTopic) obj;
-    if (mqttTopic.equals(target.mqttTopic)) {
-      return true;
-    }
-
-    return false;
+    return mqttTopic.equals(target.mqttTopic);
   }
 
   public String getMqttTopic() {
     return mqttTopic;
+  }
+
+  public void setMessage(String message) {
+    this.message = message;
+  }
+
+  public String getMessage() {
+    return message;
   }
 }

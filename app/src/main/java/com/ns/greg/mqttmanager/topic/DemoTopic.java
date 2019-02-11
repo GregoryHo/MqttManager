@@ -9,28 +9,18 @@ import com.ns.greg.library.mqtt_manager.external.MqttTopic;
 
 public class DemoTopic extends MqttTopic {
 
-  private String topic;
-  private String message;
+  private final String topic;
 
   public DemoTopic(String topic) {
-    this("/DEMO/" + topic, "");
-    this.topic = topic;
+    this(topic, "");
   }
 
-  public DemoTopic(String mqttTopic, String message) {
-    super(mqttTopic);
-    this.message = message;
+  public DemoTopic(String topic, String message) {
+    super("/DEMO/" + topic, message);
+    this.topic = topic;
   }
 
   public String getTopic() {
     return topic;
-  }
-
-  public void setMessage(String message) {
-    this.message = message;
-  }
-
-  public String getMessage() {
-    return message;
   }
 }

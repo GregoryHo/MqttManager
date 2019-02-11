@@ -9,14 +9,14 @@ import com.ns.greg.library.mqtt_manager.external.Subscription;
  * @since 2017/11/14
  */
 
-public class TopicWindow extends DemoTopic implements Subscription, Publishing {
+public class TopicWindow extends DemoTopic implements Publishing {
 
-  public TopicWindow(String mqttTopic) {
-    super(mqttTopic);
+  public TopicWindow(String topic) {
+    super(topic);
   }
 
-  public TopicWindow(String mqttTopic, String message) {
-    super(mqttTopic, message);
+  public TopicWindow(String topic, String message) {
+    super(topic, message);
   }
 
   @Override public int getPublishingQoS() {
@@ -29,9 +29,5 @@ public class TopicWindow extends DemoTopic implements Subscription, Publishing {
 
   @Override public String getPublishingMessage() {
     return getMessage();
-  }
-
-  @Override public int getSubscriptionQoS() {
-    return MqttConstants.EXACTLY_ONCE;
   }
 }

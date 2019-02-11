@@ -11,12 +11,12 @@ import com.ns.greg.library.mqtt_manager.external.Subscription;
 
 public class TopicDoor extends DemoTopic implements Subscription, Publishing {
 
-  public TopicDoor(String mqttTopic) {
-    super(mqttTopic);
+  public TopicDoor(String topic) {
+    super(topic);
   }
 
-  public TopicDoor(String mqttTopic, String message) {
-    super(mqttTopic, message);
+  public TopicDoor(String topic, String message) {
+    super(topic, message);
   }
 
   @Override public int getPublishingQoS() {

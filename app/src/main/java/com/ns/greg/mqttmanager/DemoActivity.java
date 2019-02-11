@@ -33,12 +33,11 @@ public class DemoActivity extends AppCompatActivity {
 
   @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    setContentView(R.layout.demo);
+    setContentView(R.layout.activity_demo);
     createTopic();
     messageTV = findViewById(R.id.message);
     findViewById(R.id.window_open_btn).setOnClickListener(
         v -> connection.publishTopic(topicWindow, null));
-
     findViewById(R.id.door_close_btn).setOnClickListener(v -> {
       // publish, the manager will check the connection is connected or not
       // if not, the manager will automatic connect to server and publish when connected
@@ -56,25 +55,23 @@ public class DemoActivity extends AppCompatActivity {
   @Override protected void onResume() {
     super.onResume();
     MqttManager.getInstance().onResume(CLIENT_ID);
-    connect2Server();
+    connectToServer();
     subscribeTopic();
   }
 
-  private void connect2Server() {
+  private void connectToServer() {
     connection = MqttManager.getInstance().getConnection(CLIENT_ID);
     if (connection == null) {
-      connection = Connection.createConnectionWithTimeStamp(getApplicationContext(),
-          "tcp://iot.eclipse.org:1883" /* Eclipse Public Server */, CLIENT_ID);
-      connection.addConnectionOptions(new Connection.ConnectOptionsBuilder().setUser("test")
-          .setPassword("1234")
-          .setConnectionTimeout(30)
-          .setKeppAliveInterval(10));
+      connection = Connection.createConnection(getApplicationContext(),
+          "iot.eclipse.org" /* Eclipse Public Server */, CLIENT_ID)
+          .addConnectionOptions(new Connection.ConnectOptionsBuilder().setUser("test")
+              .setPassword("1234")
+              .setConnectionTimeout(30)
+              .setKeppAliveInterval(10));
       connection = MqttManager.getInstance()
           .addConnection(connection);
     }
 
-
-    // connection
     connection.connect(new OnActionListener() {
       @Override public void onSuccess(MqttTopic mqttTopic, String message) {
 
@@ -92,8 +89,8 @@ public class DemoActivity extends AppCompatActivity {
       return;
     }
 
-    // subscribe single, the manager will check the connection is connected or not
-    // if not, the manager will automatic connect to server and subscribe when connected
+    // subscribe single, the connection will check the state is connected or not
+    // if not, it will automatic connect to server and subscribe when connected
     connection.subscribeTopic(topicDoor, new OnActionListener<TopicDoor>() {
       @Override public void onSuccess(TopicDoor mqttTopic, String message) {
         System.out.println(
@@ -125,10 +122,6 @@ public class DemoActivity extends AppCompatActivity {
   }
 
   private void updateReceivedMessage(final String message) {
-    runOnUiThread(new Runnable() {
-      @Override public void run() {
-        messageTV.setText(message);
-      }
-    });
+    runOnUiThread(() -> messageTV.setText(message));
   }
 }

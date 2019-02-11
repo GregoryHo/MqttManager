@@ -10,8 +10,8 @@ import com.ns.greg.library.mqtt_manager.external.Subscription;
 
 public class TopicLight extends DemoTopic implements Subscription {
 
-  public TopicLight(String mqttTopic) {
-    super(mqttTopic);
+  public TopicLight(String topic) {
+    super(topic);
   }
 
   @Override public int getSubscriptionQoS() {
