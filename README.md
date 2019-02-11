@@ -94,9 +94,6 @@ connection.subscribeTopic(topic, new OnActionListener<TopicDoor>() {
 });
 ```
 ### Multiple
-The connection will check current state,
-if connected, it will just subscribe the topic,
-otherwise it will automatic connect to server and subscribe when connected.
 ```java
 List<DemoTopic> subscriptionList = new ArrayList<>();
 subscriptionList.add(topic);
@@ -130,5 +127,4 @@ connection.publishTopic(topic, new OnActionListener<TopicDoor>() {
   }
 })
 ```
-### Simple Demo
 
