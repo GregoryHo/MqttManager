@@ -83,7 +83,7 @@ if connected, it will just subscribe the topic,
 otherwise it will automatic connect to server and subscribe when connected.
 ### Single
 ```java
-connection.subscribeTopic(topic, new OnActionListener<TopicDoor>() {
+connection.subscribeTopic(topic, new OnActionListener<SubscribeTopic>() {
   @Override public void onSuccess(SubscribeTopic topic, String message) {
     /* subscribe topic succeeded */
   }
@@ -98,7 +98,7 @@ connection.subscribeTopic(topic, new OnActionListener<TopicDoor>() {
 List<DemoTopic> subscriptionList = new ArrayList<>();
 subscriptionList.add(topic);
 subscriptionList.add(topic2);
-connection.subscribeTopics(subscriptionList, new OnActionListener<TopicDoor>() {
+connection.subscribeTopics(subscriptionList, new OnActionListener<SubscribeTopic>() {
   @Override public void onSuccess(SubscribeTopic topic, String message) {
     /* subscribe topic succeeded */
   }
@@ -117,12 +117,12 @@ otherwise it will automatic connect to server and publish when connected.
 topic.setMessage("some message");
 /* doesn't care about callback */
 connection.publishTopic(topic, null);
-connection.publishTopic(topic, new OnActionListener<TopicDoor>() {
-  @Override public void onSuccess(TopicDoor mqttTopic, String message) {
+connection.publishTopic(topic, new OnActionListener<PublishTopic>() {
+  @Override public void onSuccess(PublishTopic mqttTopic, String message) {
     /* publish topic succeeded */
   }
                                
-  @Override public void onFailure(TopicDoor mqttTopic, Throwable throwable) {
+  @Override public void onFailure(PublishTopic mqttTopic, Throwable throwable) {
     /* publish topic failure */
   }
 })

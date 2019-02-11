@@ -47,10 +47,7 @@ public class MqttManager {
    */
   public void onResume(String clientId) {
     synchronized (MqttManager.class) {
-      if (timeStamps.containsKey(clientId)) {
-        timeStamps.remove(clientId);
-      }
-
+      timeStamps.remove(clientId);
       timeStamps.put(clientId, System.currentTimeMillis());
     }
   }
@@ -98,9 +95,7 @@ public class MqttManager {
    * Removes specific connection
    */
   public void removeConnection(String clientId) {
-    if (connections.containsKey(clientId)) {
-      connections.remove(clientId);
-    }
+    connections.remove(clientId);
   }
 
   /**

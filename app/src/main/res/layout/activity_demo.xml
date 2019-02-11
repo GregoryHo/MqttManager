@@ -9,24 +9,26 @@
   <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
+      android:layout_marginLeft="8dp"
+      android:layout_marginTop="8dp"
       android:orientation="horizontal"
       >
 
     <TextView
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="0.3"
-        android:text="Receive: "
-        android:textSize="16sp"
+        android:text="State: "
+        android:textColor="@android:color/black"
+        android:textSize="20sp"
+        android:textStyle="bold"
         />
 
     <TextView
-        android:id="@+id/message"
-        android:layout_width="0dp"
-        android:layout_weight="0.7"
+        android:id="@+id/state_tv"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:textSize="16sp"
+        android:textColor="@android:color/darker_gray"
+        android:textSize="20sp"
         />
 
   </LinearLayout>
@@ -34,25 +36,111 @@
   <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
+      android:layout_marginLeft="8dp"
+      android:layout_marginTop="8dp"
       android:orientation="horizontal"
       >
 
-    <Button
-        android:id="@+id/window_open_btn"
-        android:layout_width="0dp"
+    <TextView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="0.5"
-        android:text="Open window"
+        android:text="Topic: "
+        android:textColor="@android:color/black"
+        android:textSize="20sp"
+        android:textStyle="bold"
         />
 
-    <Button
-        android:id="@+id/door_close_btn"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="0.5"
-        android:text="Close door"
+    <TextView
+        android:id="@+id/topic_tv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="20sp"
         />
 
   </LinearLayout>
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginLeft="8dp"
+      android:layout_marginTop="8dp"
+      android:orientation="horizontal"
+      >
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Received: "
+        android:textColor="@android:color/black"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        />
+
+    <TextView
+        android:id="@+id/message_tv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="20sp"
+        />
+
+  </LinearLayout>
+
+  <Button
+      android:id="@+id/connect_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="CONNECT"
+      />
+
+  <Button
+      android:id="@+id/disconnect_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="DISCONNECT"
+      />
+
+  <Button
+      android:id="@+id/light_open_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="OPEN LIGHT"
+      />
+
+  <Button
+      android:id="@+id/light_close_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="CLOSE LIGHT"
+      />
+
+  <Button
+      android:id="@+id/window_open_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="OPEN WINDOW"
+      />
+
+  <Button
+      android:id="@+id/window_close_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="CLOSE WINDOW"
+      />
+
+  <Button
+      android:id="@+id/door_open_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="OPEN DOOR"
+      />
+
+  <Button
+      android:id="@+id/door_close_btn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="CLOSE DOOR"
+      />
 
 </LinearLayout>

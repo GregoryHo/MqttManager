@@ -9,7 +9,7 @@ import com.ns.greg.library.mqtt_manager.external.MqttTopic;
 
 public interface OnActionListener<T extends MqttTopic> {
 
-  void onSuccess(T mqttTopic, String message);
+  void onSuccess(T topic, String message);
 
-  void onFailure(T mqttTopic, Throwable throwable);
+  void onFailure(T topic, Throwable throwable);
 }

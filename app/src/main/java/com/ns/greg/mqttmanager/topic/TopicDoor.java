@@ -11,12 +11,8 @@ import com.ns.greg.library.mqtt_manager.external.Subscription;
 
 public class TopicDoor extends DemoTopic implements Subscription, Publishing {
 
-  public TopicDoor(String topic) {
-    super(topic);
-  }
-
-  public TopicDoor(String topic, String message) {
-    super(topic, message);
+  public TopicDoor() {
+    super("door");
   }
 
   @Override public int getPublishingQoS() {
@@ -32,6 +28,6 @@ public class TopicDoor extends DemoTopic implements Subscription, Publishing {
   }
 
   @Override public int getSubscriptionQoS() {
-    return MqttConstants.EXACTLY_ONCE;
+    return MqttConstants.AT_LEAST_ONCE;
   }
 }

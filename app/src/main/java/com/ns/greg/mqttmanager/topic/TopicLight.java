@@ -1,6 +1,7 @@
 package com.ns.greg.mqttmanager.topic;
 
 import com.ns.greg.library.mqtt_manager.MqttConstants;
+import com.ns.greg.library.mqtt_manager.external.Publishing;
 import com.ns.greg.library.mqtt_manager.external.Subscription;
 
 /**
@@ -8,10 +9,22 @@ import com.ns.greg.library.mqtt_manager.external.Subscription;
  * @since 2017/11/14
  */
 
-public class TopicLight extends DemoTopic implements Subscription {
+public class TopicLight extends DemoTopic implements Subscription, Publishing {
 
-  public TopicLight(String topic) {
-    super(topic);
+  public TopicLight() {
+    super("light");
+  }
+
+  @Override public int getPublishingQoS() {
+    return MqttConstants.EXACTLY_ONCE;
+  }
+
+  @Override public int isRetained() {
+    return MqttConstants.RETAINED;
+  }
+
+  @Override public String getPublishingMessage() {
+    return getMessage();
   }
 
   @Override public int getSubscriptionQoS() {

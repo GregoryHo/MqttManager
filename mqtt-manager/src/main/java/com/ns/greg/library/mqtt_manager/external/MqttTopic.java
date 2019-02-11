@@ -8,11 +8,9 @@ package com.ns.greg.library.mqtt_manager.external;
 public abstract class MqttTopic {
 
   private final String mqttTopic;
-  private String message;
 
-  public MqttTopic(String mqttTopic, String message) {
+  public MqttTopic(String mqttTopic) {
     this.mqttTopic = mqttTopic;
-    this.message = message;
   }
 
   @Override public String toString() {
@@ -34,13 +32,5 @@ public abstract class MqttTopic {
 
   public String getMqttTopic() {
     return mqttTopic;
-  }
-
-  public void setMessage(String message) {
-    this.message = message;
-  }
-
-  public String getMessage() {
-    return message;
   }
 }
